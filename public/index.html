@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Real-time Data Visualization and Control</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      text-align: center;
+      margin: 20px;
+      background-color: #DAD3BE;
+    }
+    canvas {
+      width: 80%;
+      max-width: 800px;
+      margin: auto;
+      margin-bottom: 30px;
+    }
+    .controls {
+      margin-top: 20px;
+    }
+    .controls button {
+      margin: 5px;
+      padding: 10px 20px;
+      font-size: 16px;
+    }
+  </style>
+</head>
+<body>
+  <h1>WEB PEMANTAU SUHU & KELEMBABAN</h1>
+
+  <div>
+    <canvas id="tempChart"></canvas>
+    <canvas id="humidityChart"></canvas>
+  </div>
+
+  <div class="controls">
+    <h2>Control LEDs</h2>
+    <button onclick="controlLED(6, 1)">Turn On LED D6</button>
+    <button onclick="controlLED(6, 0)">Turn Off LED D6</button>
+    <button onclick="controlLED(7, 1)">Turn On LED D7</button>
+    <button onclick="controlLED(7, 0)">Turn Off LED D7</button>
+    <button onclick="controlLED(8, 1)">Turn On LED D8</button>
+    <button onclick="controlLED(8, 0)">Turn Off LED D8</button>
+  </div>
+
+  <script>
+    const socket = new WebSocket('ws://localhost:8777');
+
+    socket.onopen = () => {
+      console.log('Connected to WebSocket');
+    };
+
+    socket.onmessage = (event) => {
+      const data = JSON.parse(event.data);
+      console.log('Received data:', data);
+
+      if (data.suhu && data.kelembapan) {
+        const time = new Date().toLocaleTimeString();
+        addTempData(time, data.suhu);
+        addHumidityData(time, data.kelembapan);
+      }
+    };
+
+    socket.onclose = () => {
+      console.log('Disconnected from WebSocket');
+    };
+
+    const tempCtx = document.getElementById('tempChart').getContext('2d');
+    const humidityCtx = document.getElementById('humidityChart').getContext('2d');
+
+    const tempChart = new Chart(tempCtx, {
+      type: 'line',
+      data: {
+        labels: [],
+        datasets: [{
+          label: 'Temperature (C)',
+          data: [],
+          borderColor: 'rgba(255, 99, 132, 1)',
+          backgroundColor: 'rgba(255, 99, 132, 0.2)',
+          borderWidth: 1
+        }]
+      },
+      options: {
+        scales: {
+          y: {
+            beginAtZero: true
+          }
+        }
+      }
+    });
+
+    const humidityChart = new Chart(humidityCtx, {
+      type: 'line',
+      data: {
+        labels: [],
+        datasets: [{
+          label: 'Humidity (%)',
+          data: [],
+          borderColor: 'rgba(54, 162, 235, 1)',
+          backgroundColor: 'rgba(54, 162, 235, 0.2)',
+          borderWidth: 1
+        }]
+      },
+      options: {
+        scales: {
+          y: {
+            beginAtZero: true
+          }
+        }
+      }
+    });
+
+    function addTempData(label, temp) {
+      tempChart.data.labels.push(label);
+      tempChart.data.datasets[0].data.push(temp);
+      tempChart.update();
+    }
+
+    function addHumidityData(label, humidity) {
+      humidityChart.data.labels.push(label);
+      humidityChart.data.datasets[0].data.push(humidity);
+      humidityChart.update();
+    }
+
+    function controlLED(pin, state) {
+      const message = {
+        type: 'control',
+        pin: pin,
+        state: state
+      };
+      socket.send(JSON.stringify(message));
+      console.log(`Sent control message: ${JSON.stringify(message)}`);
+    }
+  </script>
+</body>
+</html>
